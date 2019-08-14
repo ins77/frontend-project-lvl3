@@ -4,9 +4,30 @@
     <title>RSS</title>
   </head>
   <body>
-    <div class="jumbotron">
-      <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Dolores autem impedit qui dignissimos. Impedit numquam quae illo repellendus, ducimus quo esse suscipit inventore perspiciatis voluptas neque sit quisquam eos. Maxime.</p>
-      <a class="btn btn-primary btn-lg" href="#" role="button">Button</a>
+    <div class="container">
+      <div class="jumbotron">
+        <form id="form-rss">
+          <div class="form-group">
+            <input type="text" class="form-control" id="input-web" placeholder="Введите адрес сайта">
+          </div>
+          <button type="submit" class="btn btn-primary" id="button-submit" disabled>Подписаться</button>
+        </form>
+      </div>
+      <div class="row">
+        <div class="col-3">
+            <div class="card">
+              <div class="card-header">
+                Feeds
+              </div>
+              <ul class="list-group list-group-flush" id="feeds">
+                <li class="list-group-item">No feeds added yet</li>
+              </ul>
+            </div>
+        </div>
+        <div class="col-9">
+          <div class="row" id="news"></div>
+        </div>
+      </div>
     </div>
   </body>
 </html>
