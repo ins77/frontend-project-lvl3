@@ -13,13 +13,6 @@ const getFeed = (state, feedLink, interval = queryInterval) => (
   axios.get(`${corsProxy}${feedLink}`)
     .then(({ data }) => domParser.parseFromString(data, 'application/xml'))
     .then((doc) => {
-      setTimeout(() => {
-        getFeed(state, feedLink);
-      }, interval);
-
-      return doc;
-    })
-    .then((doc) => {
       if (doc.querySelector('parsererror')) {
         throw new Error('parserError');
       }
@@ -57,6 +50,10 @@ const getFeed = (state, feedLink, interval = queryInterval) => (
           state.allArticles = [latestArticle, ...state.allArticles];
         }
       }
+
+      setTimeout(() => {
+        getFeed(state, feedLink);
+      }, interval);
     })
     .catch((error) => {
       const errorMessage = error.toString();
@@ -72,11 +69,6 @@ const getFeed = (state, feedLink, interval = queryInterval) => (
       }
 
       return error;
-    })
-    .then((error) => {
-      if (!error) {
-        state.formRssStatus = formRssStatuses.clear;
-      }
     })
 );
 
@@ -100,7 +92,12 @@ export const onFormRssSubmit = (state) => (event) => {
 
   state.formRssStatus = formRssStatuses.load;
 
-  getFeed(state, inputWeb.value);
+  getFeed(state, inputWeb.value)
+    .then((error) => {
+      if (!error) {
+        state.formRssStatus = formRssStatuses.clear;
+      }
+    });
 };
 
 export const onArticlesListClick = (state) => (event) => {
