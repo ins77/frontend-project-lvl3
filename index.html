@@ -1,16 +1,17 @@
 <!doctype html>
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>RSS</title>
   </head>
   <body>
     <div class="container">
       <div class="jumbotron">
-        <form id="form-rss">
+        <form id="formRss">
           <div class="form-group">
-            <input type="text" class="form-control" id="input-web" placeholder="Введите адрес сайта">
+            <input type="text" class="form-control" id="inputWeb" placeholder="Введите адрес сайта">
           </div>
-          <button type="submit" class="btn btn-primary" id="button-submit" disabled>Подписаться</button>
+          <button type="submit" class="btn btn-primary" id="buttonSubmit" disabled>Подписаться</button>
         </form>
       </div>
       <div class="row">
@@ -26,6 +27,22 @@
         </div>
         <div class="col-9">
           <div class="row" id="news"></div>
+        </div>
+      </div>
+    </div>
+  
+    <div class="modal fade" id="newsModal" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="newsModalTitle"></h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body" id="newsModalBody">
+            ...
+          </div>
         </div>
       </div>
     </div>

@@ -1,8 +1,13 @@
+// TODO: обработка ошибок
+// TODO: перевести в конечные автоматы
+// TODO: разнести по модулям
+
+import _ from 'lodash';
 import axios from 'axios';
 import { watch } from 'melanke-watchjs';
 import validator from 'validator';
 
-const corsLink = 'https://cors-anywhere.herokuapp.com/';
+const corsProxy = 'https://cors-anywhere.herokuapp.com/';
 
 export default () => {
   const state = {
@@ -10,37 +15,63 @@ export default () => {
       valid: true,
       submitDisabled: true,
     },
-    addedFeeds: [],
+    feeds: [],
+    allNews: [],
+    modal: {
+      title: '',
+      description: '',
+    },
   };
 
   const domParser = new DOMParser();
-  const inputWeb = document.querySelector('#input-web');
-  const buttonSubmit = document.querySelector('#button-submit');
-  const formRss = document.querySelector('#form-rss');
+  const inputWeb = document.querySelector('#inputWeb');
+  const buttonSubmit = document.querySelector('#buttonSubmit');
+  const formRss = document.querySelector('#formRss');
   const feedsList = document.querySelector('#feeds');
   const newsList = document.querySelector('#news');
+  const newsModalTitle = document.querySelector('#newsModalTitle');
+  const newsModalBody = document.querySelector('#newsModalBody');
 
-  const getFeed = (link) => (
-    axios.get(`${corsLink}${link}`)
+  const getFeed = (feedLink) => (
+    axios.get(`${corsProxy}${feedLink}`)
       .then(({ data }) => domParser.parseFromString(data, 'application/xml'))
       .then((doc) => {
         const items = doc.querySelectorAll('item');
         const mappedItems = [...items].map((item) => (
           {
+            feedLink,
             link: item.querySelector('link').textContent,
             title: item.querySelector('title').textContent,
+            description: item.querySelector('description').textContent,
           }
         ));
 
         return {
-          link,
+          link: feedLink,
           title: doc.querySelector('title').textContent,
           description: doc.querySelector('description').textContent,
           items: mappedItems,
         };
       })
       .then((feed) => {
-        state.addedFeeds = [...state.addedFeeds, feed];
+        const isFeedExisting = state.feeds.some((feedItem) => feedItem.link === feedLink);
+
+        if (!isFeedExisting) {
+          state.feeds = [...state.feeds, feed];
+          state.allNews = [...feed.items, ...state.allNews];
+        } else {
+          const feedToUpdate = state.feeds.find((feedItem) => feedItem.link === feedLink);
+          const [latestNews] = _.differenceWith(feed.items, feedToUpdate.items, _.isEqual);
+          const isNewsExisting = latestNews && state.allNews.some((newsItem) => newsItem.link === latestNews.link);
+
+          if (latestNews && !isNewsExisting) {
+            state.allNews = [latestNews, ...state.allNews];
+          }
+        }
+
+        setTimeout(() => {
+          getFeed(feedLink);
+        }, 5000);
       })
   );
 
@@ -56,11 +87,11 @@ export default () => {
     }
   });
 
-  watch(state, 'addedFeeds', () => {
+  watch(state, 'feeds', () => {
     inputWeb.value = '';
     inputWeb.classList.remove('is-valid');
 
-    const feeds = state.addedFeeds.map((feed) => (
+    const feeds = state.feeds.map((feed) => (
       `<li class="list-group-item">
         <h6>${feed.title}</h6>
         ${feed.description}
@@ -68,24 +99,30 @@ export default () => {
     ));
 
     feedsList.innerHTML = feeds.join('');
+  });
 
-    const news = state.addedFeeds.reduce((acc, { items }) => [...acc, ...items], []);
-    const mappedNews = news.map(({ title }) => (
+  watch(state, 'allNews', () => {
+    const news = state.allNews.map(({ title, link }) => (
       `<div class="col-sm-6 mb-3">
         <div class="card">
           <div class="card-body">
-            <a href="#" class="card-link">${title}</a>
+            <a href=${link} class="card-link" data-toggle="modal" data-target="#newsModal">${title}</a>
           </div>
         </div>
       </div>`
     ));
 
-    newsList.innerHTML = mappedNews.join('');
+    newsList.innerHTML = news.join('');
+  });
+
+  watch(state, 'modal', () => {
+    newsModalTitle.textContent = state.modal.title;
+    newsModalBody.textContent = state.modal.description;
   });
 
   inputWeb.addEventListener('input', (event) => {
     const inputValue = event.target.value;
-    const isFeedExisting = state.addedFeeds.some((feed) => feed.link === inputValue);
+    const isFeedExisting = state.feeds.some((feed) => feed.link === inputValue);
 
     if (!validator.isURL(inputValue) || isFeedExisting) {
       state.formRSS.valid = false;
@@ -102,5 +139,16 @@ export default () => {
     state.formRSS.submitDisabled = true;
 
     getFeed(inputWeb.value);
+  });
+
+  newsList.addEventListener('click', (event) => {
+    const { target } = event;
+
+    if (!target.dataset.toggle) return;
+
+    const newsItem = state.news.find((item) => item.link === target.href);
+
+    state.modal.title = newsItem.title;
+    state.modal.description = newsItem.description;
   });
 };
