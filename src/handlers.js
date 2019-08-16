@@ -79,18 +79,14 @@ const getFeed = (state, feedLink, interval = queryInterval) => (
       return parseFeed(doc, feedLink);
     })
     .then(updateState(state, feedLink))
+    .then(() => {
+      setTimeout(() => {
+        getFeed(state, feedLink);
+      }, interval);
+    })
     .catch((error) => {
       state.formRssStatus = formRssStatuses.invalid;
       state.errorMessage = getQueryErrorMessage(error);
-
-      return error;
-    })
-    .then((error) => {
-      if (!error) {
-        setTimeout(() => {
-          getFeed(state, feedLink);
-        }, interval);
-      }
 
       return error;
     })
