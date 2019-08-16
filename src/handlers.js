@@ -9,6 +9,65 @@ const queryInterval = 5000;
 const domParser = new DOMParser();
 const inputWeb = document.querySelector('#inputWeb');
 
+const parseFeed = (rssDocument, feedLink) => {
+  const items = rssDocument.querySelectorAll('item');
+  const mappedItems = [...items].map((item) => (
+    {
+      link: item.querySelector('link').textContent,
+      title: item.querySelector('title').textContent,
+      description: item.querySelector('description').textContent,
+    }
+  ));
+
+  return {
+    link: feedLink,
+    title: rssDocument.querySelector('title').textContent,
+    description: rssDocument.querySelector('description').textContent,
+    items: mappedItems,
+  };
+};
+
+const updateState = (state, feedLink) => (feed) => {
+  const isFeedExisting = state.feeds.some((feedItem) => feedItem.link === feedLink);
+
+  if (!isFeedExisting) {
+    state.feeds = [...state.feeds, feed];
+    state.allArticles = [...feed.items, ...state.allArticles];
+
+    return;
+  }
+
+  const feedToUpdate = state.feeds.find((feedItem) => feedItem.link === feedLink);
+  const [latestArticle] = _.differenceWith(feed.items, feedToUpdate.items, _.isEqual);
+  const isArticleExisting = latestArticle
+    && state.allArticles.some((article) => article.link === latestArticle.link);
+  const isNewArticlesAdded = latestArticle && !isArticleExisting;
+
+  if (isNewArticlesAdded) {
+    state.allArticles = [latestArticle, ...state.allArticles];
+  }
+};
+
+const getQueryErrorMessage = (error) => {
+  const errorMessage = error.toString();
+
+  if (errorMessage === 'Error: parserError') {
+    return formRssErrors.notRSS;
+  }
+
+  if (errorMessage === 'Error: Request failed with status code 404') {
+    return formRssErrors.notFound;
+  }
+
+  return formRssErrors.unknown;
+};
+
+const getInputErrorMessage = (isURL, isFeedExisting) => {
+  if (!isURL) return formRssErrors.notURL;
+  if (isFeedExisting) return formRssErrors.existingFeed;
+  return formRssErrors.noError;
+};
+
 const getFeed = (state, feedLink, interval = queryInterval) => (
   axios.get(`${corsProxy}${feedLink}`)
     .then(({ data }) => domParser.parseFromString(data, 'application/xml'))
@@ -17,55 +76,20 @@ const getFeed = (state, feedLink, interval = queryInterval) => (
         throw new Error('parserError');
       }
 
-      const items = doc.querySelectorAll('item');
-      const mappedItems = [...items].map((item) => (
-        {
-          link: item.querySelector('link').textContent,
-          title: item.querySelector('title').textContent,
-          description: item.querySelector('description').textContent,
-        }
-      ));
-
-      return {
-        link: feedLink,
-        title: doc.querySelector('title').textContent,
-        description: doc.querySelector('description').textContent,
-        items: mappedItems,
-      };
+      return parseFeed(doc, feedLink);
     })
-    .then((feed) => {
-      const isFeedExisting = state.feeds.some((feedItem) => feedItem.link === feedLink);
-
-      if (!isFeedExisting) {
-        state.feeds = [...state.feeds, feed];
-        state.allArticles = [...feed.items, ...state.allArticles];
-      } else {
-        const feedToUpdate = state.feeds.find((feedItem) => feedItem.link === feedLink);
-        const [latestArticle] = _.differenceWith(feed.items, feedToUpdate.items, _.isEqual);
-        const isArticleExisting = latestArticle
-          && state.allArticles.some((article) => article.link === latestArticle.link);
-        const isNewArticlesAdded = latestArticle && !isArticleExisting;
-
-        if (isNewArticlesAdded) {
-          state.allArticles = [latestArticle, ...state.allArticles];
-        }
-      }
-
-      setTimeout(() => {
-        getFeed(state, feedLink);
-      }, interval);
-    })
+    .then(updateState(state, feedLink))
     .catch((error) => {
-      const errorMessage = error.toString();
-
       state.formRssStatus = formRssStatuses.invalid;
+      state.errorMessage = getQueryErrorMessage(error);
 
-      if (errorMessage === 'Error: parserError') {
-        state.errorMessage = formRssErrors.notRSS;
-      } else if (errorMessage === 'Error: Request failed with status code 404') {
-        state.errorMessage = formRssErrors.notFound;
-      } else {
-        state.errorMessage = formRssErrors.unknown;
+      return error;
+    })
+    .then((error) => {
+      if (!error) {
+        setTimeout(() => {
+          getFeed(state, feedLink);
+        }, interval);
       }
 
       return error;
@@ -77,13 +101,8 @@ export const onInputWebInput = (state) => (event) => {
   const isFeedExisting = state.feeds.some((feed) => feed.link === inputValue);
   const isURL = validator.isURL(inputValue);
   const isRssValid = isURL && !isFeedExisting;
-  const getErrorMessage = () => {
-    if (!isURL) return formRssErrors.notURL;
-    if (isFeedExisting) return formRssErrors.existingFeed;
-    return formRssErrors.noError;
-  };
 
-  state.errorMessage = getErrorMessage();
+  state.errorMessage = getInputErrorMessage(isURL, isFeedExisting);
   state.formRssStatus = isRssValid ? formRssStatuses.valid : formRssStatuses.invalid;
 };
 
