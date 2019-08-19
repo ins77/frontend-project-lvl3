@@ -1,29 +1,22 @@
-import formRssErrors from './constants/formRssErrors';
+
 import formRssStatuses from './constants/formRssStatuses';
-
-const inputWeb = document.querySelector('#inputWeb');
-const inputWebErrorMessage = document.querySelector('#inputWebErrorMessage');
-const buttonSubmit = document.querySelector('#buttonSubmit');
-const buttonSubmitSpinner = buttonSubmit.querySelector('#buttonSubmitSpinner');
-const feedsList = document.querySelector('#feeds');
-const articlesList = document.querySelector('#articles');
-const articleModalTitle = document.querySelector('#articleModalTitle');
-const articleModalBody = document.querySelector('#articleModalBody');
-
-const errorMessages = {
-  [formRssErrors.notURL]: 'Введите URL',
-  [formRssErrors.existingFeed]: 'Вы уже подписаны на этот канал',
-  [formRssErrors.notFound]: 'Страницы с введенным адресом не существует',
-  [formRssErrors.notRSS]: 'Данные по введенному адресу не соответствуют формату RSS',
-  [formRssErrors.unknown]: 'Что-то пошло не так :(',
-  [formRssErrors.noError]: '',
-};
+import { errorMessagesRU, errorMessagesEN } from './constants/rssErrorMessages';
+import initi18next from './utils';
 
 export const renderErrorMessage = (state) => () => {
-  inputWebErrorMessage.textContent = errorMessages[state.errorMessage];
+  initi18next(errorMessagesRU, errorMessagesEN)
+    .then((translate) => {
+      const inputWebErrorMessage = document.querySelector('#inputWebErrorMessage');
+
+      inputWebErrorMessage.textContent = translate(state.errorMessage);
+    });
 };
 
-export const renderFormRSS = (state) => () => {
+export const updateFormRSS = (state) => () => {
+  const inputWeb = document.querySelector('#inputWeb');
+  const buttonSubmit = document.querySelector('#buttonSubmit');
+  const buttonSubmitSpinner = buttonSubmit.querySelector('#buttonSubmitSpinner');
+
   switch (state.formRssStatus) {
     case formRssStatuses.clear:
       inputWeb.value = '';
@@ -55,6 +48,7 @@ export const renderFormRSS = (state) => () => {
 };
 
 export const renderFeeds = (state) => () => {
+  const feedsList = document.querySelector('#feeds');
   const feeds = state.feeds.map((feed) => (
     `<li class="list-group-item">
       <h6>${feed.title}</h6>
@@ -66,6 +60,7 @@ export const renderFeeds = (state) => () => {
 };
 
 export const renderAllArticles = (state) => () => {
+  const articlesList = document.querySelector('#articles');
   const articles = state.allArticles.map(({ title, link }) => (
     `<div class="col-sm-6 mb-3">
       <div class="card">
@@ -80,6 +75,9 @@ export const renderAllArticles = (state) => () => {
 };
 
 export const renderModal = (state) => () => {
+  const articleModalTitle = document.querySelector('#articleModalTitle');
+  const articleModalBody = document.querySelector('#articleModalBody');
+
   articleModalTitle.textContent = state.modal.title;
   articleModalBody.textContent = state.modal.description;
 };

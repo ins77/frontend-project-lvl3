@@ -2,7 +2,7 @@ export default {
   notURL: 'notURL',
   existingFeed: 'existingFeed',
   notFound: 'notFound',
-  notRSS: 'notRSS',
+  parserError: 'parserError',
   noError: 'noError',
   unknown: 'unknown',
 };

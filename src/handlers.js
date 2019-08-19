@@ -6,12 +6,17 @@ import formRssStatuses from './constants/formRssStatuses';
 
 const corsProxy = 'https://cors-anywhere.herokuapp.com/';
 const queryInterval = 5000;
-const domParser = new DOMParser();
-const inputWeb = document.querySelector('#inputWeb');
 
-const parseFeed = (rssDocument, feedLink) => {
-  const items = rssDocument.querySelectorAll('item');
-  const mappedItems = [...items].map((item) => (
+const parseFeed = (data, feedLink) => {
+  const domParser = new DOMParser();
+  const rssDocument = domParser.parseFromString(data, 'application/xml');
+
+  if (rssDocument.querySelector('parsererror')) {
+    throw new Error('parserError');
+  }
+
+  const articles = rssDocument.querySelectorAll('item');
+  const mappedArticles = [...articles].map((item) => (
     {
       link: item.querySelector('link').textContent,
       title: item.querySelector('title').textContent,
@@ -23,22 +28,22 @@ const parseFeed = (rssDocument, feedLink) => {
     link: feedLink,
     title: rssDocument.querySelector('title').textContent,
     description: rssDocument.querySelector('description').textContent,
-    items: mappedItems,
+    articles: mappedArticles,
   };
 };
 
-const updateState = (state, feedLink) => (feed) => {
+const updateState = (state, feed, feedLink) => {
   const isFeedExisting = state.feeds.some((feedItem) => feedItem.link === feedLink);
 
   if (!isFeedExisting) {
     state.feeds = [...state.feeds, feed];
-    state.allArticles = [...feed.items, ...state.allArticles];
+    state.allArticles = [...feed.articles, ...state.allArticles];
 
     return;
   }
 
   const feedToUpdate = state.feeds.find((feedItem) => feedItem.link === feedLink);
-  const [latestArticle] = _.differenceWith(feed.items, feedToUpdate.items, _.isEqual);
+  const [latestArticle] = _.differenceWith(feed.articles, feedToUpdate.articles, _.isEqual);
   const isArticleExisting = latestArticle
     && state.allArticles.some((article) => article.link === latestArticle.link);
   const isNewArticlesAdded = latestArticle && !isArticleExisting;
@@ -52,7 +57,7 @@ const getQueryErrorMessage = (error) => {
   const errorMessage = error.toString();
 
   if (errorMessage === 'Error: parserError') {
-    return formRssErrors.notRSS;
+    return formRssErrors.parserError;
   }
 
   if (errorMessage === 'Error: Request failed with status code 404') {
@@ -70,25 +75,15 @@ const getInputErrorMessage = (isURL, isFeedExisting) => {
 
 const getFeed = (state, feedLink, interval = queryInterval) => (
   axios.get(`${corsProxy}${feedLink}`)
-    .then(({ data }) => domParser.parseFromString(data, 'application/xml'))
-    .then((doc) => {
-      if (doc.querySelector('parsererror')) {
-        throw new Error('parserError');
-      }
+    .then(({ data }) => {
+      const feed = parseFeed(data, feedLink);
 
-      return parseFeed(doc, feedLink);
+      updateState(state, feed, feedLink);
     })
-    .then(updateState(state, feedLink))
     .then(() => {
       setTimeout(() => {
         getFeed(state, feedLink);
       }, interval);
-    })
-    .catch((error) => {
-      state.formRssStatus = formRssStatuses.invalid;
-      state.errorMessage = getQueryErrorMessage(error);
-
-      return error;
     })
 );
 
@@ -105,13 +100,17 @@ export const onInputWebInput = (state) => (event) => {
 export const onFormRssSubmit = (state) => (event) => {
   event.preventDefault();
 
+  const { target } = event;
+
   state.formRssStatus = formRssStatuses.load;
 
-  getFeed(state, inputWeb.value)
-    .then((error) => {
-      if (!error) {
-        state.formRssStatus = formRssStatuses.clear;
-      }
+  getFeed(state, target.inputWeb.value)
+    .then(() => {
+      state.formRssStatus = formRssStatuses.clear;
+    })
+    .catch((error) => {
+      state.formRssStatus = formRssStatuses.invalid;
+      state.errorMessage = getQueryErrorMessage(error);
     });
 };
 
